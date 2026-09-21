@@ -8,6 +8,7 @@ import { TenantModule } from './tenant/tenant.module';
 import { LogisticsModule } from './logistics/logistics.module';
 import { FinanceModule } from './finance/finance.module';
 import { CanteenModule } from './canteen/canteen.module';
+import { AcademicModule } from './academic/academic.module';
 import appConfig from './config/app.config';
 import jwtConfig from './config/jwt.config';
 import redisConfig from './config/redis.config';
@@ -56,6 +57,7 @@ import mongodbConfig from './config/mongodb.config';
     LogisticsModule,
     FinanceModule,
     CanteenModule,
+    AcademicModule,
   ],
 })
 export class AppModule {}
