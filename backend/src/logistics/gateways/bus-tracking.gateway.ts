@@ -334,6 +334,71 @@ export class BusTrackingGateway
   }
 
   // ──────────────────────────────────────────────────────────
+  //  Real-Time Logistics Events (Boarding & Absence)
+  // ──────────────────────────────────────────────────────────
+
+  /**
+   * Broadcast an NFC tap boarding/alighting event to:
+   * 1. Route room (`bus_route_${routeId}`)
+   * 2. Specific parent rooms (`parent_${parentId}`)
+   * 3. Redis Pub/Sub channel `logistics:boarding_events`
+   */
+  async broadcastBoardingEvent(event: {
+    routeId: string;
+    studentId: string;
+    studentName: string;
+    busId: string;
+    vehiclePlate?: string;
+    status: string;
+    direction: string;
+    timestamp: string;
+    location?: { lat: number; lng: number };
+    parentUserIds?: string[];
+    message: string;
+  }) {
+    // 1. Emit to route room (for matron, driver, and watching parents)
+    const room = this.routeRoom(event.routeId);
+    if (this.server) {
+      this.server.to(room).emit('student_boarded', event);
+
+      // 2. Emit directly to each parent's personal socket room
+      if (event.parentUserIds && event.parentUserIds.length > 0) {
+        for (const parentId of event.parentUserIds) {
+          this.server.to(`parent_${parentId}`).emit('boarding_notification', event);
+          this.server.to(`user_${parentId}`).emit('boarding_notification', event);
+        }
+      }
+    }
+
+    // 3. Publish to Redis Pub/Sub channel for multi-pod WebSocket scaling
+    await this.redis.publish('logistics:boarding_events', JSON.stringify(event));
+    await this.redis.publish('parent_notifications', JSON.stringify(event));
+  }
+
+  /**
+   * Broadcast a student absence event to the driver and route room
+   * so the mobile navigation dynamically skips that house/stop.
+   */
+  async broadcastAbsenceEvent(event: {
+    routeId: string;
+    studentId: string;
+    studentName: string;
+    stopId?: string;
+    date: string;
+    round: string;
+    reason?: string;
+    message: string;
+  }) {
+    const room = this.routeRoom(event.routeId);
+    if (this.server) {
+      this.server.to(room).emit('student_absence', event);
+    }
+
+    // Publish to Redis Pub/Sub channel
+    await this.redis.publish('logistics:absence_events', JSON.stringify(event));
+  }
+
+  // ──────────────────────────────────────────────────────────
   //  Helpers
   // ──────────────────────────────────────────────────────────
 

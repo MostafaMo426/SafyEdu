@@ -5,6 +5,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BusTelemetry, BusTelemetrySchema } from './schemas/bus-telemetry.schema';
 import { BusTelemetryService } from './services/bus-telemetry.service';
 import { BusTrackingGateway } from './gateways/bus-tracking.gateway';
+import { BoardingService } from './services/boarding.service';
+import { AbsenceService } from './services/absence.service';
+import { FleetService } from './services/fleet.service';
+import { BoardingController } from './controllers/boarding.controller';
+import { AbsenceController } from './controllers/absence.controller';
+import { FleetController } from './controllers/fleet.controller';
 
 @Module({
   imports: [
@@ -23,7 +29,21 @@ import { BusTrackingGateway } from './gateways/bus-tracking.gateway';
       inject: [ConfigService],
     }),
   ],
-  providers: [BusTelemetryService, BusTrackingGateway],
-  exports: [BusTelemetryService],
+  controllers: [BoardingController, AbsenceController, FleetController],
+  providers: [
+    BusTelemetryService,
+    BusTrackingGateway,
+    BoardingService,
+    AbsenceService,
+    FleetService,
+  ],
+  exports: [
+    BusTelemetryService,
+    BusTrackingGateway,
+    BoardingService,
+    AbsenceService,
+    FleetService,
+  ],
 })
 export class LogisticsModule {}
+
