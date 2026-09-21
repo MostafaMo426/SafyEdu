@@ -84,12 +84,12 @@ export class BusTelemetryService {
   async getRecentByRoute(
     routeId: string,
     limit = 50,
-  ): Promise<BusTelemetryDocument[]> {
+  ): Promise<BusTelemetry[]> {
     return this.telemetryModel
       .find({ routeId })
       .sort({ timestamp: -1 })
       .limit(limit)
-      .lean()
+      .lean<BusTelemetry[]>()
       .exec();
   }
 
@@ -100,12 +100,12 @@ export class BusTelemetryService {
   async getRecentByBus(
     busId: string,
     limit = 100,
-  ): Promise<BusTelemetryDocument[]> {
+  ): Promise<BusTelemetry[]> {
     return this.telemetryModel
       .find({ busId })
       .sort({ timestamp: -1 })
       .limit(limit)
-      .lean()
+      .lean<BusTelemetry[]>()
       .exec();
   }
 
@@ -119,7 +119,7 @@ export class BusTelemetryService {
     longitude: number,
     latitude: number,
     radiusMeters = 500,
-  ): Promise<BusTelemetryDocument[]> {
+  ): Promise<BusTelemetry[]> {
     // Only consider telemetry from the last 30 seconds (live buses only)
     const cutoff = new Date(Date.now() - 30_000);
 
@@ -133,7 +133,7 @@ export class BusTelemetryService {
           },
         },
       })
-      .lean()
+      .lean<BusTelemetry[]>()
       .exec();
   }
 
@@ -141,11 +141,11 @@ export class BusTelemetryService {
    * Reconstruct the full path of a completed trip for admin review.
    * Covered by index { tripSessionId: 1, timestamp: 1 }.
    */
-  async getTripPath(tripSessionId: string): Promise<BusTelemetryDocument[]> {
+  async getTripPath(tripSessionId: string): Promise<BusTelemetry[]> {
     return this.telemetryModel
       .find({ tripSessionId })
       .sort({ timestamp: 1 })
-      .lean()
+      .lean<BusTelemetry[]>()
       .exec();
   }
 }

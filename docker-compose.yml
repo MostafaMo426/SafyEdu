@@ -44,9 +44,28 @@ services:
     image: mongo:7.0
     container_name: safyedu_mongodb
     restart: unless-stopped
-    # Start as a single-node replica set so we can use
-    # transactions and $changeStream in Phase 2+.
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    entrypoint: >
+      bash -c "
+        if [ ! -f /data/db/keyfile ]; then
+          openssl rand -base64 756 > /data/db/keyfile
+          chmod 400 /data/db/keyfile
+          chown 999:999 /data/db/keyfile
+        fi
+        (
+          while ! mongosh --quiet --eval 'db.adminCommand(\"ping\").ok' > /dev/null 2>&1; do
+            sleep 1
+          done
+          sleep 1
+          mongosh -u ${MONGO_USER:-safyedu} -p ${MONGO_PASSWORD:-safyedu_secret} --authenticationDatabase admin --eval '
+            try {
+              rs.status();
+            } catch (e) {
+              rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"localhost:27017\"}]});
+            }
+          ' || true
+        ) &
+        exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /data/db/keyfile --bind_ip_all
+      "
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-safyedu}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-safyedu_secret}
@@ -55,7 +74,6 @@ services:
       - "${MONGO_PORT:-27017}:27017"
     volumes:
       - mongo_data:/data/db
-      - ./docker/mongo/rs-init.js:/docker-entrypoint-initdb.d/rs-init.js:ro
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 15s
@@ -95,7 +113,7 @@ services:
     container_name: safyedu_pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@safyedu.local}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@safyedu.com}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
