@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "SafyEdu Local Postgres",
+      "Group": "SafyEdu",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "safyedu_dev",
+      "Username": "safyedu",
+      "SSLMode": "prefer",
+      "PassFile": "/tmp/.pgpass"
+    }
+  }
+}

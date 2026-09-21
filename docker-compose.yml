@@ -1,0 +1,151 @@
+# ────────────────────────────────────────────────────────────
+#  SafyEdu — Docker Compose (Local Development Stack)
+#
+#  Services:
+#   postgres  — Primary relational store (Prisma / PostgreSQL 16)
+#   mongodb   — High-velocity telemetry & audit logs (Mongo 7)
+#   redis     — Pub/Sub, WebSocket rooms, session cache (Redis 7)
+#   pgadmin   — Lightweight Postgres UI (localhost:5050)
+#
+#  Usage:
+#   docker compose up -d          # Start all services
+#   docker compose down -v        # Stop + wipe volumes
+#   docker compose logs -f redis  # Tail single service
+# ────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL 16 ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: safyedu_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-safyedu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-safyedu_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-safyedu_dev}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Init script: enable required PG extensions on first boot
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-safyedu} -d ${POSTGRES_DB:-safyedu_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - safyedu_net
+
+  # ── MongoDB 7 (Replica Set — required for Mongoose transactions
+  #    and time-series collections) ──────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: safyedu_mongodb
+    restart: unless-stopped
+    # Start as a single-node replica set so we can use
+    # transactions and $changeStream in Phase 2+.
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-safyedu}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-safyedu_secret}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-safyedu_telemetry}
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./docker/mongo/rs-init.js:/docker-entrypoint-initdb.d/rs-init.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - safyedu_net
+
+  # ── Redis 7 (AOF persistence + maxmemory policy) ──────────
+  redis:
+    image: redis:7-alpine
+    container_name: safyedu_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-safyedu_redis_secret}
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --notify-keyspace-events KEA
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-safyedu_redis_secret}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - safyedu_net
+
+  # ── pgAdmin 4 (Postgres GUI) ───────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: safyedu_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@safyedu.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - safyedu_net
+
+  # ── NestJS Backend (optional local container build) ────────
+  # Uncomment this block if you want to run the API in Docker.
+  # For active development, run 'npm run start:dev' locally instead.
+  #
+  # api:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #     target: production
+  #   container_name: safyedu_api
+  #   restart: unless-stopped
+  #   env_file: ./backend/.env.local
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     mongodb:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - safyedu_net
+
+# ── Volumes ───────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  mongo_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+# ── Networks ──────────────────────────────────────────────────
+networks:
+  safyedu_net:
+    driver: bridge

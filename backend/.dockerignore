@@ -1,0 +1,32 @@
+# Source files excluded from Docker build context
+# (Prevents bloated context; builder stage uses COPY . . strategically)
+
+node_modules
+dist
+.git
+.gitignore
+
+# Environment secrets — NEVER in image
+.env
+.env.local
+.env.production
+
+# Dev/test artifacts
+coverage
+*.log
+npm-debug.log*
+.nyc_output
+
+# IDE
+.vscode
+.idea
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker meta (avoid recursion)
+Dockerfile
+.dockerignore
+docker-compose*.yml
