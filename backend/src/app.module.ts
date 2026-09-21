@@ -6,6 +6,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { TenantModule } from './tenant/tenant.module';
 import { LogisticsModule } from './logistics/logistics.module';
+import { FinanceModule } from './finance/finance.module';
+import { CanteenModule } from './canteen/canteen.module';
 import appConfig from './config/app.config';
 import jwtConfig from './config/jwt.config';
 import redisConfig from './config/redis.config';
@@ -52,6 +54,8 @@ import mongodbConfig from './config/mongodb.config';
     AuthModule,
     TenantModule,
     LogisticsModule,
+    FinanceModule,
+    CanteenModule,
   ],
 })
 export class AppModule {}

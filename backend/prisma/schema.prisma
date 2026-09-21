@@ -841,6 +841,10 @@ model Wallet {
   dailyLimit         Decimal   @default(0) @db.Decimal(8, 2)
   /// Prohibited food category IDs (FK to CanteenCategory)
   blockedCategoryIds String[]  @db.Uuid
+  /// Prohibited specific item IDs (FK to CanteenItem)
+  blockedItemIds     String[]  @default([]) @db.Uuid
+  /// Prohibited allergen tags or dietary keywords (e.g. ["Peanuts", "Soda", "Gluten"])
+  blockedKeywords    String[]  @default([])
   nfcCardUid         String?   @unique // Linked NFC card/wristband UID
   isActive           Boolean   @default(true)
   createdAt          DateTime  @default(now())
